@@ -98,7 +98,7 @@ async fn translate_text_command(request: TranslationRequest) -> Result<Translati
 // 保存API配置
 #[tauri::command]
 async fn save_api_config(config: ApiConfig) -> Result<(), String> {
-    // 使用当前工作目录作为配置存储位置
+    // 使用 Tauri 推荐的 app config 目录
     let config_dir = PathBuf::from("config");
     fs::create_dir_all(&config_dir)
         .map_err(|e| format!("Failed to create config dir: {}", e))?;
@@ -137,6 +137,7 @@ async fn load_api_config() -> Result<ApiConfig, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             shortcut: Mutex::new("".to_string()),

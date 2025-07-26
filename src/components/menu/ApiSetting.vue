@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { create, BaseDirectory } from '@tauri-apps/plugin-fs';
 
 const apiTypes = [
   { label: 'MyMemory（免费）', value: 'mymemory' },
@@ -17,6 +18,10 @@ const status = ref('');
 // 保存到本地
 async function saveSetting() {
   try {
+    const file = await create('foo/bar.txt', { baseDir: BaseDirectory.AppData });
+    await file.write(new TextEncoder().encode('Hello world'));
+    await file.close();
+
     await invoke('save_api_config', {
       config: {
         api_type: selectedApi.value,
