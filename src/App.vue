@@ -2,9 +2,9 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import ShortcutInput from "./components/ShortcutInput.vue";
+import ShortcutInput from "./components/menu/ShortcutInput.vue";
 import SideMenu from "./components/SideMenu.vue";
-import ApiSetting from "./components/ApiSetting.vue";
+import ApiSetting from "./components/menu/ApiSetting.vue";
 
 interface TranslationResult {
   original: string;
