@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
 const apiTypes = [
   { label: 'MyMemory（免费）', value: 'mymemory' },
@@ -13,11 +14,33 @@ const selectedApi = ref('mymemory');
 const apiKey = ref('');
 const status = ref('');
 
-function saveSetting() {
-  // 这里只做本地保存演示，可扩展为持久化到本地文件或后端
-  status.value = '保存成功！';
-  setTimeout(() => status.value = '', 1500);
+// 保存到本地
+async function saveSetting() {
+  try {
+    await invoke('save_api_config', {
+      config: {
+        api_type: selectedApi.value,
+        api_key: apiKey.value
+      }
+    });
+    status.value = '保存成功！';
+    setTimeout(() => status.value = '', 1500);
+  } catch (error) {
+    status.value = `保存失败: ${error}`;
+    setTimeout(() => status.value = '', 3000);
+  }
 }
+
+// 读取本地配置
+onMounted(async () => {
+  try {
+    const config = await invoke('load_api_config');
+    selectedApi.value = config.api_type;
+    apiKey.value = config.api_key;
+  } catch (error) {
+    console.error('加载配置失败:', error);
+  }
+});
 </script>
 
 <template>

@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use std::fs;
+use std::path::PathBuf;
+use std::env;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,6 +18,12 @@ pub struct TranslationRequest {
     pub text: String,
     pub from: Option<String>,
     pub to: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiConfig {
+    pub api_type: String,
+    pub api_key: String,
 }
 
 pub struct AppState {
@@ -86,6 +95,45 @@ async fn translate_text_command(request: TranslationRequest) -> Result<Translati
     translate_text(&request.text, request.from, request.to).await
 }
 
+// 保存API配置
+#[tauri::command]
+async fn save_api_config(config: ApiConfig) -> Result<(), String> {
+    // 使用当前工作目录作为配置存储位置
+    let config_dir = PathBuf::from("config");
+    fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create config dir: {}", e))?;
+    
+    let config_path = config_dir.join("api-config.json");
+    let config_json = serde_json::to_string(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+    
+    fs::write(&config_path, config_json)
+        .map_err(|e| format!("Failed to write config file: {}", e))?;
+    
+    Ok(())
+}
+
+// 读取API配置
+#[tauri::command]
+async fn load_api_config() -> Result<ApiConfig, String> {
+    let config_path = PathBuf::from("config").join("api-config.json");
+    
+    if !config_path.exists() {
+        return Ok(ApiConfig {
+            api_type: "mymemory".to_string(),
+            api_key: "".to_string(),
+        });
+    }
+    
+    let config_content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read config file: {}", e))?;
+    
+    let config: ApiConfig = serde_json::from_str(&config_content)
+        .map_err(|e| format!("Failed to parse config: {}", e))?;
+    
+    Ok(config)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -97,7 +145,9 @@ pub fn run() {
             get_clipboard_text,
             set_clipboard_text,
             register_shortcut,
-            translate_text_command
+            translate_text_command,
+            save_api_config,
+            load_api_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
