@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import { create, readTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { ref, onMounted } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import {create, BaseDirectory, mkdir} from '@tauri-apps/plugin-fs';
 
 const apiTypes = [
   { label: 'MyMemory（免费）', value: 'mymemory' },
@@ -15,36 +14,42 @@ const selectedApi = ref('mymemory');
 const apiKey = ref('');
 const status = ref('');
 
-// 保存到本地
-async function saveSetting() {
-  try {
-    await mkdir('', { baseDir: BaseDirectory.AppData, recursive: true });
-    const file = await create('config.json', { baseDir: BaseDirectory.AppData });
+const configFile = 'config.json';
 
-    const configObj = {
-      apiType: selectedApi.value,
-      apiKey: apiKey.value
-    };
-    const jsonStr = JSON.stringify(configObj, null, 2);
-    await file.write(new TextEncoder().encode(jsonStr));
-    await file.close();
-    status.value = '保存成功！';
-    setTimeout(() => status.value = '', 1500);
-  } catch (error) {
-    status.value = `保存失败: ${error}`;
-    setTimeout(() => status.value = '', 3000);
+// 保存配置
+async function saveSetting() {
+  const config = {
+    api_type: selectedApi.value,
+    api_key: apiKey.value
+  };
+  const jsonStr = JSON.stringify(config, null, 2);
+
+  // 创建文件并写入内容
+  const file = await create(configFile, { baseDir: BaseDirectory.AppData });
+  await file.write(new TextEncoder().encode(jsonStr));
+  await file.close();
+
+  status.value = '保存成功！';
+
+  // 保存后立即读取并更新页面
+  await loadSetting();
+}
+
+// 读取配置
+async function loadSetting() {
+  try {
+    const content = await readTextFile(configFile, { baseDir: BaseDirectory.AppData });
+    const config: { api_type: string; api_key: string } = JSON.parse(content);
+    selectedApi.value = config.api_type;
+    apiKey.value = config.api_key;
+  } catch (e) {
+    // 文件不存在时忽略
   }
 }
 
-// 读取本地配置
-onMounted(async () => {
-  try {
-    const config: { api_type: string; api_key: string } = await invoke('load_api_config');
-    selectedApi.value = config.api_type;
-    apiKey.value = config.api_key;
-  } catch (error) {
-    console.error('加载配置失败:', error);
-  }
+// 页面加载时自动读取
+onMounted(() => {
+  loadSetting();
 });
 </script>
 
