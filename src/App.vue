@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -15,6 +15,8 @@ const inputText = ref("");
 const translationResult = ref<TranslationResult | null>(null);
 const isTranslating = ref(false);
 const statusMessage = ref("");
+const isListeningShortcut = ref(false);
+const shortcutInputRef = ref<HTMLInputElement | null>(null);
 
 // 注册快捷键
 async function registerShortcut() {
@@ -60,6 +62,74 @@ async function copyToClipboard() {
   }
 }
 
+// 开始监听快捷键输入
+function startListeningShortcut() {
+  isListeningShortcut.value = true;
+  shortcut.value = "";
+  statusMessage.value = "请按下快捷键组合...";
+  
+  // 聚焦到输入框
+  nextTick(() => {
+    if (shortcutInputRef.value) {
+      shortcutInputRef.value.focus();
+    }
+  });
+}
+
+// 停止监听快捷键输入
+function stopListeningShortcut() {
+  isListeningShortcut.value = false;
+  statusMessage.value = "";
+}
+
+// 处理键盘事件
+function handleKeyDown(event: KeyboardEvent) {
+  if (!isListeningShortcut.value) return;
+  
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const keys: string[] = [];
+  
+  // 检查修饰键
+  if (event.metaKey ) {
+    keys.push("meta");
+  }
+
+  if (event.ctrlKey ) {
+    keys.push("ctrlKey");
+  }
+
+  if (event.altKey) {
+    keys.push("Alt");
+  }
+  if (event.shiftKey) {
+    keys.push("Shift");
+  }
+  
+  // 添加主键
+  if (event.key !== "Meta" && event.key !== "Control" && event.key !== "Alt" && event.key !== "Shift") {
+    keys.push(event.key.toUpperCase());
+  }
+  
+  if (keys.length > 0) {
+    shortcut.value = keys.join("+");
+    stopListeningShortcut();
+  }
+}
+
+// 处理键盘释放事件
+function handleKeyUp(event: KeyboardEvent) {
+  if (!isListeningShortcut.value) return;
+  
+  // 如果所有修饰键都释放了，停止监听
+  if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+    if (shortcut.value === "") {
+      stopListeningShortcut();
+    }
+  }
+}
+
 // 监听翻译结果事件
 let unlisten: (() => void) | null = null;
 
@@ -94,15 +164,25 @@ onUnmounted(() => {
         <h3>⚡ 快捷键设置</h3>
         <div class="shortcut-input">
           <input 
+            ref="shortcutInputRef"
             v-model="shortcut" 
-            placeholder="输入快捷键，如: CmdOrCtrl+Shift+T"
+            :placeholder="isListeningShortcut ? '请按下快捷键组合...' : '点击开始监听或输入快捷键'"
             class="shortcut-field"
+            :class="{ 'listening': isListeningShortcut }"
+            @focus="startListeningShortcut"
+            @blur="stopListeningShortcut"
+            @keydown="handleKeyDown"
+            @keyup="handleKeyUp"
+            readonly
           />
+          <button @click="startListeningShortcut" class="listen-btn">
+            {{ isListeningShortcut ? '停止监听' : '开始监听' }}
+          </button>
           <button @click="registerShortcut" class="register-btn">
             注册快捷键
           </button>
         </div>
-        <p class="hint">💡 复制文本后按快捷键即可自动翻译</p>
+        <p class="hint">💡 点击输入框或"开始监听"按钮，然后按下快捷键组合</p>
       </div>
 
       <!-- 手动翻译 -->
@@ -220,6 +300,40 @@ onUnmounted(() => {
 .shortcut-field:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.shortcut-field.listening {
+  border-color: #ff6b6b;
+  background-color: #fff5f5;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 107, 107, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+  }
+}
+
+.listen-btn {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+  font-size: 14px;
+}
+
+.listen-btn:hover {
+  transform: translateY(-2px);
 }
 
 .register-btn {
