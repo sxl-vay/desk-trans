@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { create, BaseDirectory } from '@tauri-apps/plugin-fs';
+import {create, BaseDirectory, mkdir} from '@tauri-apps/plugin-fs';
 
 const apiTypes = [
   { label: 'MyMemory（免费）', value: 'mymemory' },
@@ -18,16 +18,16 @@ const status = ref('');
 // 保存到本地
 async function saveSetting() {
   try {
-    const file = await create('foo/bar.txt', { baseDir: BaseDirectory.AppData });
-    await file.write(new TextEncoder().encode('Hello world'));
-    await file.close();
+    await mkdir('', { baseDir: BaseDirectory.AppData, recursive: true });
+    const file = await create('config.json', { baseDir: BaseDirectory.AppData });
 
-    await invoke('save_api_config', {
-      config: {
-        api_type: selectedApi.value,
-        api_key: apiKey.value
-      }
-    });
+    const configObj = {
+      apiType: selectedApi.value,
+      apiKey: apiKey.value
+    };
+    const jsonStr = JSON.stringify(configObj, null, 2);
+    await file.write(new TextEncoder().encode(jsonStr));
+    await file.close();
     status.value = '保存成功！';
     setTimeout(() => status.value = '', 1500);
   } catch (error) {
@@ -39,7 +39,7 @@ async function saveSetting() {
 // 读取本地配置
 onMounted(async () => {
   try {
-    const config = await invoke('load_api_config');
+    const config: { api_type: string; api_key: string } = await invoke('load_api_config');
     selectedApi.value = config.api_type;
     apiKey.value = config.api_key;
   } catch (error) {

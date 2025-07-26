@@ -60,7 +60,7 @@ async fn translate_text(text: &str, from: Option<String>, to: Option<String>) ->
     let url = "https://api.mymemory.translated.net/get";
     let from_lang = from.unwrap_or_else(|| "auto".to_string());
     let to_lang = to.unwrap_or_else(|| "zh".to_string());
-    
+
     let client = reqwest::Client::new();
     let response = client
         .get(url)
@@ -71,16 +71,16 @@ async fn translate_text(text: &str, from: Option<String>, to: Option<String>) ->
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     let json: serde_json::Value = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
-    
+
     let translated_text = json["responseData"]["translatedText"]
         .as_str()
         .ok_or("No translation found")?;
-    
+
     Ok(TranslationResult {
         original: text.to_string(),
         translated: translated_text.to_string(),
@@ -98,8 +98,9 @@ async fn translate_text_command(request: TranslationRequest) -> Result<Translati
 // 保存API配置
 #[tauri::command]
 async fn save_api_config(config: ApiConfig) -> Result<(), String> {
-    // 使用 Tauri 推荐的 app config 目录
-    let config_dir = PathBuf::from("config");
+    // 使用当前工作目录下的 config 文件夹
+    let current_dir = env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+    let config_dir = current_dir.join("config");
     fs::create_dir_all(&config_dir)
         .map_err(|e| format!("Failed to create config dir: {}", e))?;
     
@@ -116,7 +117,8 @@ async fn save_api_config(config: ApiConfig) -> Result<(), String> {
 // 读取API配置
 #[tauri::command]
 async fn load_api_config() -> Result<ApiConfig, String> {
-    let config_path = PathBuf::from("config").join("api-config.json");
+    let current_dir = env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+    let config_path = current_dir.join("config").join("api-config.json");
     
     if !config_path.exists() {
         return Ok(ApiConfig {
