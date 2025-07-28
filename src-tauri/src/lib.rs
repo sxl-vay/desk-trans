@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::env;
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,7 +55,11 @@ async fn register_shortcut(app_handle: AppHandle, shortcut: String) -> Result<()
 }
 
 // 翻译文本
-async fn translate_text(text: &str, from: Option<String>, to: Option<String>) -> Result<TranslationResult, String> {
+async fn translate_text(
+    text: &str,
+    from: Option<String>,
+    to: Option<String>,
+) -> Result<TranslationResult, String> {
     // 这里使用免费的翻译API，您可以替换为其他API
     let url = "https://api.mymemory.translated.net/get";
     let from_lang = from.unwrap_or_else(|| "auto".to_string());
@@ -99,46 +103,48 @@ async fn translate_text_command(request: TranslationRequest) -> Result<Translati
 #[tauri::command]
 async fn save_api_config(config: ApiConfig) -> Result<(), String> {
     // 使用当前工作目录下的 config 文件夹
-    let current_dir = env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+    let current_dir =
+        env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
     let config_dir = current_dir.join("config");
-    fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config dir: {}", e))?;
-    
+    fs::create_dir_all(&config_dir).map_err(|e| format!("Failed to create config dir: {}", e))?;
+
     let config_path = config_dir.join("api-config.json");
-    let config_json = serde_json::to_string(&config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    
+    let config_json =
+        serde_json::to_string(&config).map_err(|e| format!("Failed to serialize config: {}", e))?;
+
     fs::write(&config_path, config_json)
         .map_err(|e| format!("Failed to write config file: {}", e))?;
-    
+
     Ok(())
 }
 
 // 读取API配置
 #[tauri::command]
 async fn load_api_config() -> Result<ApiConfig, String> {
-    let current_dir = env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+    let current_dir =
+        env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
     let config_path = current_dir.join("config").join("api-config.json");
-    
+
     if !config_path.exists() {
         return Ok(ApiConfig {
             api_type: "mymemory".to_string(),
             api_key: "".to_string(),
         });
     }
-    
+
     let config_content = fs::read_to_string(&config_path)
         .map_err(|e| format!("Failed to read config file: {}", e))?;
-    
+
     let config: ApiConfig = serde_json::from_str(&config_content)
         .map_err(|e| format!("Failed to parse config: {}", e))?;
-    
+
     Ok(config)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
