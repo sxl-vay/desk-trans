@@ -6,6 +6,7 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue']);
 
 const menus = [
+  { key: 'translate', label: '翻译', icon: '🔤' },
   { key: 'shortcut', label: '快捷键设置', icon: '⌨️' },
   { key: 'api', label: '翻译API设置', icon: '🌐' }
 ];
